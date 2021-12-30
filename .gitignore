@@ -2,7 +2,8 @@
 !.gitignore
 !.devcontainer
 !c
+!c/lib
 !c/Makefile
 !c/.clang-format
-!c/*.c
-!c/*.h
+!c/**/*.c
+!c/**/*.h
