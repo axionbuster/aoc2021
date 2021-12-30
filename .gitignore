@@ -1,0 +1,8 @@
+*
+!.gitignore
+!.devcontainer
+!c
+!c/Makefile
+!c/.clang-format
+!c/*.c
+!c/*.h
