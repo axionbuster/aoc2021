@@ -1,6 +1,6 @@
+#include "xalloc.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "xalloc.h"
 
 #include "intvec.h"
 
@@ -12,7 +12,8 @@ IntVec *xmkintvec() {
   return v;
 }
 
-// Insert a value (x) into v. When an expansion is required, and fails to expand, abort.
+// Insert a value (x) into v. When an expansion is required, and fails to
+// expand, abort.
 void xinsintvec(IntVec *v, int x) {
   if (v->len == v->cap) {
     v->cap *= 2;

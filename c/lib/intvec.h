@@ -11,7 +11,8 @@ typedef struct {
 // Allocate an intvec or abort.
 IntVec *xmkintvec();
 
-// Insert a value (x) into v. When an expansion is required, and fails to expand, abort.
+// Insert a value (x) into v. When an expansion is required, and fails to
+// expand, abort.
 void xinsintvec(IntVec *v, int x);
 
 // Compacts the capacity of an int vector (v) or abort.

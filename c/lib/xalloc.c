@@ -1,6 +1,6 @@
+#include "xalloc.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "xalloc.h"
 
 void *xmalloc(size_t sz) {
   void *p = malloc(sz);
