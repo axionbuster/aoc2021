@@ -12,7 +12,6 @@
 #include <string.h>
 
 #include "lib/dbgprint.h"
-#include "lib/iminmax.h"
 #include "lib/xalloc.h"
 
 static int charcmp(void const *a, void const *b) {
@@ -70,7 +69,7 @@ static void strunion(const char *a, const char *b, char *out) {
   }
 }
 
-int strmatch_earliest(const char *exact, char **array, size_t n) {
+int strmatch(const char *exact, char **array, size_t n) {
   for (size_t i = 0; i < n; i++) {
     if (strncmp(exact, array[i], 8) == 0) {
       return i;
@@ -113,6 +112,8 @@ void display_table(int *indices, int *reverse, char **sequences, char **quizzes,
 int main(void) {
   char *sequences[10];
   char *quizzes[4];
+  // indices - get number from index
+  // reverse - get index from number
   int indices[10], reverse[10];
   for (int i = 0; i < 10; i++) {
     sequences[i] = xcalloc(8, sizeof(char));
@@ -195,16 +196,15 @@ int main(void) {
     strunion(pattern, patterns147[2], result7);
 
     // Specific questions
-    int mat1 = strmatch_earliest(result1, sequences, 10);
+    int mat1 = strmatch(result1, sequences, 10);
     if (mat1 == -1) {
       indguess2 = i;
     }
 
     printf(" %-8s | %-4d | %-4d | %-8s (%-2d) | %-8s (%-2d) | %-8s (%-2d) \n",
-           pattern, i, indicator, result1,
-           strmatch_earliest(result1, sequences, 10), result4,
-           strmatch_earliest(result4, sequences, 10), result7,
-           strmatch_earliest(result7, sequences, 10));
+           pattern, i, indicator, result1, strmatch(result1, sequences, 10),
+           result4, strmatch(result4, sequences, 10), result7,
+           strmatch(result7, sequences, 10));
   }
   // Guess which index is the number 9.
   int indguess9 = -1;
@@ -225,15 +225,14 @@ int main(void) {
 
     // Some specific questions
     // Guess 9
-    int mat4 = strmatch_earliest(result4, sequences, 10);
+    int mat4 = strmatch(result4, sequences, 10);
     if (mat4 != -1) {
       indguess9 = i;
     }
     printf(" %-8s | %-4d | %-4d | %-8s (%-2d) | %-8s (%-2d) | %-8s (%-2d) \n",
-           pattern, i, indicator, result1,
-           strmatch_earliest(result1, sequences, 10), result4,
-           strmatch_earliest(result4, sequences, 10), result7,
-           strmatch_earliest(result7, sequences, 10));
+           pattern, i, indicator, result1, strmatch(result1, sequences, 10),
+           result4, strmatch(result4, sequences, 10), result7,
+           strmatch(result7, sequences, 10));
   }
   printf("The number 2 is at index %d.\n", indguess2);
   indices[indguess2] = 2;
@@ -244,8 +243,8 @@ int main(void) {
   display_table(indices, reverse, sequences, quizzes, 2, "3,5?", "0,6?");
   // Gues which index represents number 5.
   int indguess5 = -1;
-  printf(" %-8s | orig | gues | %-8s      | %-8s      | %-8s      \n", "str",
-         "union1", "union4", "union7");
+  printf(" %-8s | orig | gues | %-8s      | %-8s      \n", "str", "union2",
+         "union9");
   for (int i = 0; i < 10; i++) {
     int indicator = indices[i];
     if (indicator < 10) {
@@ -258,19 +257,19 @@ int main(void) {
     strunion(pattern, sequences[reverse[9]], result9);
 
     // Specific questions
-    int mat1 = strmatch_earliest(result2, sequences, 10);
-    if (mat1 == -1) {
+    int mat2 = strmatch(result2, sequences, 10);
+    if (mat2 != -1 && indicator == 10) {
       indguess5 = i;
     }
 
     printf(" %-8s | %-4d | %-4d | %-8s (%-2d) | %-8s (%-2d)\n", pattern, i,
-           indicator, result2, strmatch_earliest(result2, sequences, 10),
-           result9, strmatch_earliest(result9, sequences, 10));
+           indicator, result2, strmatch(result2, sequences, 10), result9,
+           strmatch(result9, sequences, 10));
   }
-  // Guess which index is the number 9.
+  // Guess which index is the number 6.
   int indguess6 = -1;
-  printf(" %-8s | orig | gues | %-8s      | %-8s      | %-8s      \n", "str",
-         "inter1", "inter4", "inter7");
+  printf(" %-8s | orig | gues | %-8s      | %-8s      \n", "str", "inter2",
+         "inter9");
   for (int i = 0; i < 10; i++) {
     int indicator = indices[i];
     if (indicator < 10) {
@@ -284,13 +283,13 @@ int main(void) {
 
     // Some specific questions
     // Guess 9
-    int mat9 = strmatch_earliest(result9, sequences, 10);
+    int mat9 = strmatch(result9, sequences, 10);
     if (mat9 != -1) {
       indguess6 = i;
     }
     printf(" %-8s | %-4d | %-4d | %-8s (%-2d) | %-8s (%-2d)\n", pattern, i,
-           indicator, result2, strmatch_earliest(result2, sequences, 10),
-           result9, strmatch_earliest(result9, sequences, 10));
+           indicator, result2, strmatch(result2, sequences, 10), result9,
+           strmatch(result9, sequences, 10));
   }
   printf("The number 5 is at index %d.\n", indguess5);
   indices[indguess5] = 5;
@@ -314,7 +313,7 @@ int main(void) {
     char sorted_q[8] = {0};
     strncpy(sorted_q, quizzes[i], 7);
     qsortstr8(sorted_q);
-    int found_at = strmatch_earliest(sorted_q, sequences, 10);
+    int found_at = strmatch(sorted_q, sequences, 10);
     if (found_at == -1) {
       fprintf(stderr, "Match for pattern \"%s\" Not found. Incorrect error?\n",
               quizzes[i]);
@@ -322,9 +321,9 @@ int main(void) {
     }
     dbgprintf("pattern \"%s\" (sorted \"%s\"), index %d\n", quizzes[i],
               sorted_q, found_at);
-    int number = reverse[found_at];
-    printf("The query %s is found at %d to be number %d.\n", sorted_q, found_at,
-           number);
+    int number = indices[found_at];
+    printf("The query %s is found at %d to be number %d.\n", quizzes[i],
+           found_at, number);
   }
   for (int i = 0; i < 10; i++) {
     free(sequences[i]);

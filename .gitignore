@@ -7,3 +7,5 @@
 !c/.clang-format
 !c/**/*.c
 !c/**/*.h
+!in
+!in/*.in
