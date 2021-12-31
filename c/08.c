@@ -1,5 +1,5 @@
-// Each line, determine which digits represent '1', '4', '7' or '8'.
-// Count the number of such digits.
+// Add up the 4-digit numbers created by concatenating the digits reconstructed
+// from the hints.
 
 #include "lib/dbgprint.h"
 #include <stdio.h>
