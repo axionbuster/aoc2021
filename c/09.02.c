@@ -13,7 +13,7 @@ typedef struct cursor_t {
   int col;
 } Cursor;
 
-static bool locallow(int ncols, int col, char *rows[3]) {
+static bool local_low(int ncols, int col, char *rows[3]) {
   int up = rows[0] ? rows[0][col] - '0' : INT_MAX;
   int down = rows[2] ? rows[2][col] - '0' : INT_MAX;
   int left = (col > 0) ? rows[1][col - 1] - '0' : INT_MAX;
@@ -99,7 +99,7 @@ int main(void) {
     }
 
     for (int c = 0; c < line_length; c++) {
-      if (locallow(line_length, c, lines)) {
+      if (local_low(line_length, c, lines)) {
         dbgprintf("Found r %d, c %d '%c'\n", r, c, lines[1][c]);
         sum += lines[1][c] - '0' + 1;
       }
