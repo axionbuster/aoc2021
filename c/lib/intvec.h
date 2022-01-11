@@ -15,6 +15,12 @@ IntVec *xmkintvec();
 // expand, abort.
 void xinsintvec(IntVec *v, int x);
 
+// Remove the top value from v as long as it is not empty.
+// Abort if attempted to remove a value from an empty vector.
+// Do NOT automatically compact the storage unless made empty; use
+// xcompactvec().
+int xpopintvec(IntVec *v);
+
 // Compacts the capacity of an int vector (v) or abort.
 void xcompactvec(IntVec *v);
 
