@@ -11,6 +11,14 @@
 #define TEXTBOLD "\e[1m"
 #define TEXTNORMAL "\e[0m"
 
+#define FORRC(rlim, clim)                                                      \
+  for (int r = 0; r < rlim; r++) {                                             \
+    for (int c = 0; c < clim; c++) {
+
+#define ENDFORRC                                                               \
+  }                                                                            \
+  }
+
 // Note that signed char is treated as ordinary integers, not characters.
 typedef struct strgrid_t {
   signed char **grid;
@@ -48,50 +56,6 @@ static signed char *charat(StringGrid *sg, int r, int c) {
   return &sg->grid[r][c];
 }
 
-// Simulation specific predicate. This predicate checks whether all octopuses
-// are below 9.
-/* static bool allbelow9(StringGrid *sg) {
-  for (int r = 0; r < sg->nrows; r++) {
-    for (int c = 0; c < sg->ncols; c++) {
-      signed char ch = *charat(sg, r, c);
-      if (ch >= 9)
-        return false;
-    }
-  }
-  return true;
-} */
-
-// This safely increases all adjacent cells to increase by 1. For nonexistant
-// cells, including (r, c) proper, no action is performed.
-static void incadj(StringGrid *sg, int r, int c) {
-  static StringGrid *scratch = NULL;
-
-  if (!scratch) {
-    scratch = xmalloc(sizeof(StringGrid *));
-    *scratch = mkstrgrid();
-    for (int rr = 0; rr < sg->nrows; rr++) {
-      signed char *line = xcalloc(rr, sizeof(signed char));
-      scratch->grid[rr] = line;
-    }
-  }
-
-  for (int rr = 0; rr < sg->nrows; rr++) {
-    memset(scratch->grid[rr], 0, sg->ncols);
-  }
-
-  for (int rr = -1; rr <= 1; rr++) {
-    for (int rc = -1; rc <= 1; rc++) {
-      if (rr == 0 && rc == 0)
-        continue;
-      signed char *pc = charat(sg, r + rr, c + rc);
-      if (pc) {
-        assert(*pc < SCHAR_MAX);
-        (*pc)++;
-      }
-    }
-  }
-}
-
 // Print, alongwith a newline, the number in a line; bold characters '0'.
 static void dbg_print_sg_line(StringGrid *sg, int r) {
   bool bold = false;
@@ -120,6 +84,96 @@ static void dbg_print_sg(StringGrid *sg) {
   dbgprintf("\n");
 }
 
+// Implement rule 2 of the description, which is summarized as "increase
+// adjacent members of those who are flashing."
+static void incadj(StringGrid *sg) {
+  // The following code only executes at first call.
+
+  static StringGrid *scratch = NULL;
+
+  if (!scratch) {
+    scratch = xmalloc(sizeof(StringGrid));
+    *scratch = mkstrgrid();
+    for (int rr = 0; rr < sg->nrows; rr++) {
+      signed char *line = xmalloc(sg->ncols);
+      movstrgrid(scratch, line);
+    }
+
+    scratch->ncols = sg->ncols;
+
+    assert(scratch->nrows == sg->nrows);
+    assert(scratch->ncols == sg->ncols);
+    assert(scratch->nrows > 0);
+    assert(scratch->ncols > 0);
+  }
+
+  // The subsequent code may execute more than one time.
+
+  // Zero out the update grid.
+  for (int r = 0; r < scratch->nrows; r++) {
+    signed char *row = scratch->grid[r];
+    for (int c = 0; c < scratch->ncols; c++) {
+      row[c] = 0;
+    }
+  }
+
+  // Do step 2 and 3 of the given rule description.
+  int flashed = 1;
+
+  while (flashed--) {
+    // Loop while any new flashes are generated.
+    // How "nflash--" works:
+    //  1. At first nflash != 0 so the loop is always entered.
+    //     Once it enters the loop, nflash == 0.
+    //  2. If the loop does not touch nflash at all then nflash == 0
+    //     at the next loop. Break (therefore, only when no more flashes occur)
+    //  3. If any flash occurs, and the loop engages again, nflash is reset to 0
+
+    for (int r = 0; r < sg->nrows; r++) {
+      for (int c = 0; c < sg->ncols; c++) {
+        signed char *oc = charat(sg, r, c);
+        if (*oc > 9) {
+          // Increase adjacent.
+          for (int rr = -1; rr <= 1; rr++) {
+            for (int cc = -1; cc <= 1; cc++) {
+              if (rr != 0 && cc != 0) {
+                signed char *relc = charat(scratch, r + rr, c + cc);
+                // Negative values in scratch means that it has flashed before
+                // and therefore must never flash again.
+                if (relc && *relc >= 0)
+                  (*relc) = 1;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (int r = 0; r < sg->nrows; r++) {
+      for (int c = 0; c < sg->ncols; c++) {
+        signed char *oc = charat(sg, r, c);
+        signed char *sc = charat(scratch, r, c);
+        *oc += *sc;
+        if (*oc > 9) {
+          // When a value in scratch is negative, it will never flash again.
+          *sc = -1;
+          flashed = 1;
+        }
+      }
+    }
+
+    // Zero out the update grid.
+    for (int r = 0; r < scratch->nrows; r++) {
+      signed char *row = scratch->grid[r];
+      for (int c = 0; c < scratch->ncols; c++) {
+        row[c] = 0;
+      }
+    }
+    // Debug
+    dbg_print_sg(sg);
+  }
+}
+
 int main(void) {
   int scan, iline;
   char *line;
@@ -146,25 +200,16 @@ int main(void) {
   for (int step = 1; step <= 100; step++) {
     for (int r = 0; r < sg.nrows; r++) {
       for (int c = 0; c < sg.ncols; c++) {
-        // signed char *psc = charat(&sg, r, c);
-        // dbgprintf("Ptr %p (%d) at r %3d, c %3d.\n", psc, *psc, r, c);
-        // dbgflush(stderr);
         (*charat(&sg, r, c))++;
       }
     }
 
-    for (int r = 0; r < sg.nrows; r++) {
-      for (int c = 0; c < sg.ncols; c++) {
-        signed char ch = *charat(&sg, r, c);
-        if (ch >= 9) {
-          incadj(&sg, r, c);
-        }
-      }
-    }
+    incadj(&sg);
+
     for (int r = 0; r < sg.nrows; r++) {
       for (int c = 0; c < sg.ncols; c++) {
         signed char *pch = charat(&sg, r, c);
-        if (*pch >= 9) {
+        if (*pch > 9) {
           *pch = 0;
         }
       }
