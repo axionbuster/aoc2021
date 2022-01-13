@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "lib/dbgprint.h"
 #include "lib/xalloc.h"
@@ -26,24 +27,10 @@ typedef struct cursor_t {
 
 #define mkcur(r, c) ((Cursor){.row = (r), .column = (c)})
 
-#define PRINTCUR "Cursor { .row = %d, .column = %d }"
-#define EXPANDCUR(cur) cur.row, cur.column
-
 static void initgrid(Grid *g) {
   g->grid = NULL;
   g->width = 0;
   g->height = 0;
-}
-
-// Create a zero-initialized grid of the same dimensions as g. Free this
-// structure using delgrid() & free().
-static Grid *mkscratcher(Grid *g) {
-  Grid *ng = xmalloc(sizeof(Grid));
-  ng->width = g->width;
-  ng->height = g->height;
-  size_t sz = (size_t)ng->width * (size_t)ng->height;
-  ng->grid = xcalloc(sz, 1);
-  return ng;
 }
 
 static void delgrid(Grid g) { free(g.grid); }
@@ -57,6 +44,13 @@ static signed char *at(Grid *g, Cursor c) {
 }
 
 static void dbggrid(Grid *g) {
+#ifndef NDEBUG
+  int tty = isatty(STDERR_FILENO);
+#else
+  int tty = 0;
+#endif
+  char const *normal = tty ? TEXTNORMAL : "";
+  char const *boldtext = tty ? TEXTBOLD : "";
   signed char ch;
   bool bold;
   FORRC(r, g->height, c, g->width) {
@@ -64,30 +58,31 @@ static void dbggrid(Grid *g) {
     ch = *at(g, co);
     if (!c) {
       if (bold) {
-        dbgprintf(TEXTNORMAL);
+        dbgprintf(normal);
       }
       bold = false;
       dbgprintf("\n");
     }
     if (ch && bold) {
       bold = false;
-      dbgprintf(TEXTNORMAL);
+      dbgprintf(normal);
     }
     if (!ch && !bold) {
       bold = true;
-      dbgprintf(TEXTBOLD);
+      dbgprintf(boldtext);
     }
 
     dbgprintf("%1x", ch);
   }
 
   if (bold) {
-    dbgprintf(TEXTNORMAL);
+    dbgprintf(normal);
   }
   dbgprintf("\n");
 }
 
-static void cpyrawrow(Grid *g, char const *row) {
+// Copy ASCII numeral rows (C-string) into the grid.
+static void cpyrawrow(Grid *g, char const *restrict row) {
   size_t ll = g->width ? g->width : strlen(row);
   size_t sz = (size_t)g->width * (size_t)g->height;
   size_t nsz = sz + ll;
@@ -113,61 +108,31 @@ static void truncall(Grid *g) {
   FORRC(r, g->height, c, g->width) {
     Cursor co = mkcur(r, c);
     signed char *x = at(g, co);
-    *x = *x > 9 ? 0 : *x;
+    *x = (*x > 9 || *x < 0) ? 0 : *x;
   }
 }
 
 // For any element who is above 9, increment all adjacent elements by 1.
-// Return number of elements that have flashed.
-// Elements are not truncated.
+// Elements are not truncated. Mark those already flashed with a negative
+// number. Return nonnegative if and only if at least one octopus flashed.
+// Return value is always nonnegative.
 static int flashall(Grid *g) {
-  Grid *scratch = mkscratcher(g);
-
-  // Count the number of flashes occured in the loop body.
-  int chain = 0;
-
-  // Mark all increases
+  int flash = 0;
   FORRC(r, g->height, c, g->width) {
-    Cursor main_co = mkcur(r, c);
-    signed char main_elem = *at(g, main_co);
-    if (main_elem <= 9)
-      continue;
-    // Flashing criterion met.
-    chain += 1;
-    // Go through every one of the 8 adjacent elements, mark as "will
-    // increase its value by 1 (as a result of the main [center] element
-    // flashing)."
-    FORRC(rr, 3, cc, 3) {
-      int roff = rr - 1;
-      int coff = cc - 1;
-      if (roff == 0 && coff == 0) {
-        continue;
-      }
-      Cursor adj_co = mkcur(r + roff, c + coff);
-      signed char *adj_elem = at(g, adj_co);
-      // Check bounds
-      if (adj_elem) {
-        signed char *at_scratch = at(scratch, adj_co);
-        *at_scratch += 1;
+    signed char *gg = at(g, mkcur(r, c));
+    if (*gg > 9) {
+      flash++;
+      *gg = -1;
+      FORRC(rr, 3, cc, 3) {
+        if (rr == 1 && cc == 1)
+          continue;
+        signed char *mm = at(g, mkcur(r + rr - 1, c + cc - 1));
+        if (mm && *mm >= 0)
+          (*mm)++;
       }
     }
   }
-
-  // Perform all increases and clear scratch.
-  FORRC(r, g->height, c, g->width) {
-    Cursor co = mkcur(r, c);
-    *at(g, co) += *at(scratch, co);
-    *at(scratch, co) = 0;
-  }
-
-  dbgprintf("Main:");
-  dbggrid(g);
-  dbgprintf("Chain reactions? %s\n", chain ? "yes" : "no");
-
-  delgrid(*scratch);
-  free(scratch);
-
-  return chain;
+  return flash;
 }
 
 int main(void) {
@@ -179,19 +144,36 @@ int main(void) {
     cpyrawrow(&g, line);
   }
 
-  dbgprintf("Before any steps:\n");
+  dbgprintf("Before any steps:");
   dbggrid(&g);
   dbgprintf("\n");
 
-  for (int step = 1; step <= 100; step++) {
-    dbgprintf("Step %d:\n\n", step);
-    int chain = 0;
-    do {
-      incall(&g);
-      chain = flashall(&g);
-      truncall(&g);
+  int all_flash = g.width * g.height;
+  int flash = 0;
+  for (int step = 1;; step++) {
+    int step_flash = 0, local_flash = 0;
+    incall(&g);
+    while ((local_flash = flashall(&g))) {
+      step_flash += local_flash;
+    }
+    flash += step_flash;
+    truncall(&g);
+    if (step <= 10 || step % 10 == 0 || step_flash == all_flash) {
+      dbgprintf("After step %d:", step);
+      dbggrid(&g);
       dbgprintf("\n");
-    } while (chain);
+    }
+    if (step == 100) {
+      dbgflush(stderr);
+      printf("After 100 steps, %d flashes were found.\n", flash);
+      dbgflush(stdin);
+    }
+    if (step_flash == all_flash) {
+      dbgflush(stderr);
+      printf("On step %d, all octopuses flash (%d)\n", step, step_flash);
+      dbgflush(stdin);
+      break;
+    }
   }
 
   delgrid(g);
