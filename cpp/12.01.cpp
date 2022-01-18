@@ -103,7 +103,6 @@ public:
     size_t local = 0;
 
     for (auto neigh : this->at(from)) {
-      // NOTE: The inner content of &vis changes within this loop.
       local += this->end_paths(vis, neigh, trace);
     }
     trace.pop_back();
