@@ -16,3 +16,5 @@
 !cpp/**/*.h
 !in
 !in/*.in
+!rust
+!rust/**/*
