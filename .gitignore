@@ -7,5 +7,12 @@
 !c/.clang-format
 !c/**/*.c
 !c/**/*.h
+!cpp
+!cpp/lib
+!cpp/Makefile
+!cpp/.clang-format
+!cpp/**/*.c
+!cpp/**/*.cpp
+!cpp/**/*.h
 !in
 !in/*.in
