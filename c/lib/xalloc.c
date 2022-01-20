@@ -13,7 +13,7 @@ void *xmalloc(size_t sz) {
 
 void *xrealloc(void *p, size_t nsz) {
   void *np = realloc(p, nsz);
-  if (!np) {
+  if (!np && nsz) {
     fprintf(stderr, "abort: xrealloc\n");
     abort();
   }
