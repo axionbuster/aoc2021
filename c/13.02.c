@@ -37,6 +37,20 @@ static void dbg_grid(Grid *g) {
   dbgprintf("\n");
 }
 
+static void print_grid(Grid *g) {
+  long counter = 0;
+  FORRC(r, g->height, c, g->width) {
+    if (counter == (g->width - 1)) {
+      printf("%c\n", at(*g, c, r));
+      counter = 0;
+    } else {
+      printf("%c", at(*g, c, r));
+      counter++;
+    }
+  }
+  printf("\n");
+}
+
 static void fold_up(Grid *g, long line) {
   assert(line > 0);
   assert(line < g->height);
@@ -99,20 +113,18 @@ int main(void) {
   v.xs = xcalloc(1, sizeof(Cursor));
 
   // Read the lines, find out maximum column and row.
-  int scan;
-  long c, r;
-  for (scan = 0; (scan = scanf("%ld,%ld ", &c, &r)) == 2;) {
+  int scan = 0;
+  Cursor co = {0};
+  while ((scan = scanf("%ld,%ld", &co.column, &co.row)) == 2) {
     // Insert coords into v while expanding size as required.
     // Update max column and row statistics.
     if (v.len == v.cap) {
       v.cap *= 2;
       v.xs = xrealloc(v.xs, v.cap * sizeof(Cursor));
     }
-    v.xs[v.len].column = c;
-    v.xs[v.len].row = r;
-    v.len++;
-    v.max_column = tg_max(v.max_column, c);
-    v.max_row = tg_max(v.max_row, r);
+    v.xs[v.len++] = co;
+    v.max_column = tg_max(v.max_column, co.column);
+    v.max_row = tg_max(v.max_row, co.row);
   }
   v.cap = v.len;
   v.xs = xrealloc(v.xs, v.len * sizeof(Cursor));
@@ -134,7 +146,7 @@ int main(void) {
   printf("%ld points read. Max column = %ld, max row = %ld\n", v.len,
          v.max_column, v.max_row);
 
-  // Read the first fold.
+  // Read the folds.
   Fold fold;
   char fold_c;
   long along, fold_no = 0;
@@ -154,15 +166,11 @@ int main(void) {
             stderr,
             "fold along direction is wrong: %c must be either 'x' or 'y'.\n",
             fold_c);
-        free(g.xs);
-        free(v.xs);
-        return 1;
+        goto error_exit;
       }
     } else if (scan == 1) {
       fprintf(stderr, "Abort while reading fold information.\n");
-      free(g.xs);
-      free(v.xs);
-      return 1;
+      goto error_exit;
     } else {
       break;
     }
@@ -187,7 +195,14 @@ int main(void) {
     dbg_grid(&g);
   }
 
+  print_grid(&g);
+
   free(v.xs);
   free(g.xs);
   return 0;
+
+error_exit:
+  free(v.xs);
+  free(g.xs);
+  return 1;
 }
