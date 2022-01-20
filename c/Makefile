@@ -1,5 +1,5 @@
 CC = gcc
-DBGOPT = -O0 -g --sanitize=undefined,address -lm -lasan -lubsan -Wall -Wpedantic -std=gnu17
+DBGOPT = -O0 -g -fsanitize=undefined,address -lm -lasan -lubsan -Wall -Wpedantic -std=gnu17
 RELOPT = -DNDEBUG -Os -lm -flto -ffast-math -std=gnu17
 SOURCE = $(wildcard *.c)
 LIBSRC = $(wildcard lib/*.c)
