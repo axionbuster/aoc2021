@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
       assert(pat_counts[pat] >= 0);
     }
 
-    // Report the least and most commonly occurring patterns
+    // Report the least and most commonly occurring characters
     long c_least_n = LONG_MAX, c_most_n = LONG_MIN;
     for (char c = 'A'; c <= (char)'Z'; c++) {
       long n = c_counts[(int)c];
