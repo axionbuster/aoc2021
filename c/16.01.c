@@ -134,8 +134,22 @@ static uint8_t accept_nibble(Octets *o, Bitdex *b) {
   return 0;
 }
 
+static int accept_length(Octets *o, Bitdex *b) {
+  uint32_t pattern = 0;
+  for (int i = 0; i < 15; i++) {
+    pattern |= ((uint32_t)get_bit(o, b) << (15 - i - 1));
+  }
+  return (int)pattern;
+}
+
 static void discard_bits(Bitdex *b, int n) {
   for (int i = 0; i < n; i++) {
+    increment_bitdex(b);
+  }
+}
+
+static void roundup_bits(Bitdex *b) {
+  while (b->oct_r % 4) {
     increment_bitdex(b);
   }
 }
@@ -193,6 +207,10 @@ static Octets accept_literal(Octets *o, Bitdex *b) {
   }
 }
 
+// Try to accept a packet.
+// If it fails, set error flag and set the index back to start.
+// TODO
+
 // Show an octet
 
 static int clamp(int x, int up, int low) {
@@ -229,6 +247,9 @@ static void print_octets(Octets *o) {
       dbgprintf("1");
     else
       dbgprintf("0");
+    if (n_read % 8 == 7) {
+      dbgprintf(" ");
+    }
     n_read++;
   }
   if (!parse_error) {
@@ -243,9 +264,9 @@ static void print_octets(Octets *o) {
   int diff = tg_max(8, o->len) - tg_min(8, o->len);
   int n_shift = clamp(diff * 8, 63, 0);
   if (n_shift != 63) {
-    dbgprintf("%lu] ", low64 >> n_shift);
+    dbgprintf("%zd] ", low64 >> n_shift);
   } else {
-    dbgprintf("%lu] ", low64);
+    dbgprintf("%zd] ", low64);
   }
   dbgprintf("(%d octets)\n", o->len);
   suppress_error_print = false;
@@ -257,7 +278,7 @@ static char const *id_type_str(int id) {
   case 4:
     return "literal";
   default:
-    return "unknown";
+    return "operator";
   }
 }
 #else
@@ -337,6 +358,38 @@ int main(void) {
     dbgprintf("Literal accepted\n");
     print_octets(&literal);
     free(literal.octets);
+  }
+
+  dbgprintf("Another packet test\n");
+  uint8_t raw_vec[7] = {0x38, 0x00, 0x6f, 0x45, 0x29, 0x12, 0x00};
+  Octets new_vec = (Octets){.len = 7, .cap = 0, .octets = raw_vec};
+  b = (Bitdex){0};
+  parse_error = FINE;
+  print_octets(&new_vec);
+
+  version = accept_version(&new_vec, &b);
+  id = accept_id(&new_vec, &b);
+  dbgprintf("Parse = %d, ver = %d, id = %d (%s)\n", parse_error, version, id,
+            id_type_str(id));
+  uint8_t lid = get_bit(&new_vec, &b);
+  dbgprintf("lid = %d\n", lid);
+  if (lid) {
+    dbgprintf("Recursion not implemented\n");
+    abort();
+  } else {
+    int length = accept_length(&new_vec, &b);
+    dbgprintf("length %d\n", length);
+    // Bad assumption. Actually, we need recursive structure
+    literal = accept_literal(&new_vec, &b);
+    dbgprintf("parse = %d, q = %d, r = %d\n", parse_error, b.oct_q, b.oct_r);
+    print_octets(&literal);
+    free(literal.octets);
+    literal = accept_literal(&new_vec, &b);
+    dbgprintf("parse = %d, q = %d, r = %d\n", parse_error, b.oct_q, b.oct_r);
+    print_octets(&literal);
+    free(literal.octets);
+    roundup_bits(&b);
+    dbgprintf("parse = %d, q = %d, r = %d\n", parse_error, b.oct_q, b.oct_r);
   }
 
   free(str.octets);
